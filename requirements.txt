@@ -1,0 +1,21 @@
+# ---------- LLM + Agent ----------
+llama-index-core>=0.11.28          # ReActAgent, tool specs
+llama-index-llms-openai>=0.1.8     # OpenAI-spec client wrapper used by Sarvam
+
+# ---------- Database ----------
+sqlalchemy>=2.0                    # universal engine layer
+psycopg2-binary>=2.9               # Postgres driver (works on Linux & macOS)
+
+# ---------- Web server ----------
+fastapi>=0.111                     # webhook + admin endpoints
+uvicorn[standard]>=0.29            # ASGI server for FastAPI
+
+# ---------- HTTP & env helpers ----------
+requests>=2.32                     # outbound calls to Sarvam, WhatsApp, etc.
+python-dotenv>=1.0                 # loads .env in dev so you avoid hard-coding keys
+
+# ---------- Logging ----------
+loguru>=0.7                        # drop-in, coloured, structured logging
+# (If you’re happy with stdlib logging, just delete this line.)
+
+llama-index-llms-openai
