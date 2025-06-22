@@ -19,7 +19,7 @@ app = FastAPI()
 @app.post("/chat")
 async def chat_endpoint(request: QueryRequest):
     response = await workflow.achat(request.prompt)
-    return {"response": response}
+    return {"response": response.response}
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
