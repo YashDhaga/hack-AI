@@ -1,3 +1,5 @@
+import os
+from dotenv import load_dotenv
 import logging
 from typing import Dict, List, Optional, Tuple
 
@@ -10,8 +12,6 @@ from llama_index.llms.openai import OpenAI
 from constants import OpenAIConfig, LLMConfig
 
 logger = logging.getLogger(__name__)
-from dotenv import load_dotenv
-import os
 
 load_dotenv()  # Load variables from .env
 
@@ -42,23 +42,23 @@ class DatabaseToolSpec(BaseToolSpec):
         try:
             self.engine = create_engine(db_url, echo=True)
 
-            # self.llm = OpenAI(
-            #     api_key= api_key,
-            #     api_base= OpenAIConfig.api_base,
-            #     model= OpenAIConfig.model,
-            #     timeout= OpenAIConfig.timeout,
-            #     strict_validation=OpenAIConfig.strict_validation,
-            # )
-
             self.llm = OpenAI(
-                api_key=API_KEY_ENV_VAR,
-                api_base=LLMConfig.API_BASE,
-                model=LLMConfig.MODEL,
-                timeout=LLMConfig.TIMEOUT,
-                strict_validation=False,
+                api_key=api_key,
+                api_base=OpenAIConfig.api_base,
+                model=OpenAIConfig.model,
+                timeout=OpenAIConfig.timeout,
+                strict_validation=OpenAIConfig.strict_validation,
             )
 
-        except Exception as e:  
+            # self.llm = OpenAI(
+            #     api_key=API_KEY_ENV_VAR,
+            #     api_base=LLMConfig.API_BASE,
+            #     model=LLMConfig.MODEL,
+            #     timeout=LLMConfig.TIMEOUT,
+            #     strict_validation=False,
+            # )
+
+        except Exception as e:
             logger.error("Error initialising DatabaseToolSpec: %s", e)
             raise
 
@@ -66,14 +66,32 @@ class DatabaseToolSpec(BaseToolSpec):
     # LOW-LEVEL DB HELPERS
     # ────────────────────────────────────────────────────────────
     def execute_query(self, query: str):
-        """Run arbitrary SQL and return rows (or None for non-SELECT)."""
+        """
+        Runs arbitrary SQL.
+
+        Returns
+        -------
+        • {"ok": True,  "changed": <bool>, "rows": <int>}  on success
+        • {"ok": False, "error": "<message>"}               on failure
+        """
         try:
             with self.engine.begin() as conn:
                 result = conn.execute(text(query))
-                return result.fetchall() if result.returns_rows else self.get_schema()
+
+                # SELECT / RETURNING  → rows list + changed=False
+                if result.returns_rows:
+                    rows = [dict(r) for r in result.fetchall()]
+                    return {"ok": True, "changed": False, "rows": len(rows), "data": rows}
+
+                # INSERT / UPDATE / DELETE / DDL
+                rc = result.rowcount            # may be −1 for DDL
+                # True if at least one row affected
+                changed = rc not in (-1, 0)
+                return {"ok": True, "changed": changed, "rows": rc}
+
         except (SQLAlchemyError, OperationalError, ProgrammingError) as e:
             logger.error("Query execution error: %s", e)
-            return None
+            return {"ok": False, "error": str(e)}
 
     def get_schema(self) -> Dict[str, List[Tuple[str, str]]]:
         """
@@ -127,6 +145,7 @@ class DatabaseToolSpec(BaseToolSpec):
             "3. If a flag column is SMALLINT or INTEGER, compare with 1/0   (NOT true/false).\n"
             "4. In promos table, status column is either live or scheduled, not 1/0."
             "5. Always compare columns of type VARCHAR in lowercase. "
+            "6. Use table store_analytics for all analytics or insights related queries."
         )
 
         return [
@@ -170,5 +189,5 @@ class DatabaseToolSpec(BaseToolSpec):
     def close_connection(self):
         try:
             self.engine.dispose()
-        except Exception as e:  
+        except Exception as e:
             logger.error("Error closing engine: %s", e)

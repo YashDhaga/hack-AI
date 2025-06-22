@@ -2,13 +2,13 @@ class LLMConfig:
     PROVIDER = "sarvam"
     API_BASE = "https://api.sarvam.ai/v1"
     MODEL = "sarvam-m"
-    TIMEOUT = 60                            # seconds
+    TIMEOUT = 120                            # seconds
     API_KEY_ENV_VAR = ""
 
 class OpenAIConfig:
     api_key=""
     api_base="https://api.openai.com/v1"
-    model="gpt-4o-mini"
+    model="o4-mini"
     timeout=240
     strict_validation=False
 
