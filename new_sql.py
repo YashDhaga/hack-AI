@@ -45,7 +45,7 @@ class DatabaseToolSpec(BaseToolSpec):
             self.llm = OpenAI(
                 api_key=api_key,
                 api_base=OpenAIConfig.api_base,
-                model=OpenAIConfig.model,
+                model="o3",
                 timeout=OpenAIConfig.timeout,
                 strict_validation=OpenAIConfig.strict_validation,
             )
@@ -71,8 +71,8 @@ class DatabaseToolSpec(BaseToolSpec):
 
         Returns
         -------
-        • {"ok": True,  "changed": <bool>, "rows": <int>}  on success
-        • {"ok": False, "error": "<message>"}               on failure
+        • {"ok": True,  "changed": <bool>, "rows": <int>, "data": [...] }  or the result on success
+        • {"ok": False, "error": "<message>"}                              on failure
         """
         try:
             with self.engine.begin() as conn:
@@ -80,14 +80,11 @@ class DatabaseToolSpec(BaseToolSpec):
 
                 # SELECT / RETURNING  → rows list + changed=False
                 if result.returns_rows:
-                    rows = [dict(r) for r in result.fetchall()]
-                    return {"ok": True, "changed": False, "rows": len(rows), "data": rows}
-
-                # INSERT / UPDATE / DELETE / DDL
-                rc = result.rowcount            # may be −1 for DDL
-                # True if at least one row affected
-                changed = rc not in (-1, 0)
-                return {"ok": True, "changed": changed, "rows": rc}
+                    # row._mapping is a read-only dict-like view of column→value
+                    # rows = [dict(r._mapping) for r in result.fetchall()]
+                    return [dict(r._mapping) for r in result.fetchall()]
+                else:
+                    return result.rowcount
 
         except (SQLAlchemyError, OperationalError, ProgrammingError) as e:
             logger.error("Query execution error: %s", e)
@@ -146,6 +143,7 @@ class DatabaseToolSpec(BaseToolSpec):
             "4. In promos table, status column is either live or scheduled, not 1/0."
             "5. Always compare columns of type VARCHAR in lowercase. "
             "6. Use table store_analytics for all analytics or insights related queries."
+            "7. Refer to status column - active/inactive in stores table to find out whether restaurants are open or closed."
         )
 
         return [
